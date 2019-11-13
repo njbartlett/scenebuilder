@@ -43,6 +43,10 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 /**
  *
  * 
@@ -52,6 +56,7 @@ public abstract class AbstractWindowController {
     final private Stage owner;
     private Parent root;
     private Scene scene;
+    private ScheduledFuture<?> scenePoll;
     private Stage stage;
     private final double CLAMP_FACTOR = 0.9;
     private final boolean sizeToScene; // true by default
@@ -60,6 +65,9 @@ public abstract class AbstractWindowController {
     private final EventHandler<WindowEvent> closeRequestHandler = event -> {
         onCloseRequest(event);
         event.consume();
+        if (scenePoll != null) {
+            scenePoll.cancel(true);
+        }
     };
     
     public AbstractWindowController() {
@@ -105,6 +113,8 @@ public abstract class AbstractWindowController {
         
         if (scene == null) {
             scene = new Scene(getRoot());
+            // scene.addPostLayoutPulseListener(new SceneLayoutReset(rootNode));
+            scenePoll = Executors.newScheduledThreadPool(1).scheduleAtFixedRate(new SceneLayoutReset(scene), 5, 5, TimeUnit.SECONDS);
             controllerDidCreateScene();
         }
         
@@ -159,6 +169,9 @@ public abstract class AbstractWindowController {
     public void closeWindow() {
         assert Platform.isFxApplicationThread();
         getStage().close();
+        if (scenePoll != null) {
+            scenePoll.cancel(true);
+        }
     }
 
     /**
